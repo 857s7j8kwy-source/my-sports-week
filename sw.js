@@ -1,6 +1,6 @@
 const prefix = 'sports-week:' + self.registration.scope + ':';
-const version = prefix + '1';
-const files = ['./','./index.html','./app.js','./style.css','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const version = prefix + '2';
+const files = ['./','./index.html','./app.js','./plans.js','./style.css','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(version).then(cache => cache.addAll(files)).then(() => self.skipWaiting()));
 });

@@ -1,11 +1,5 @@
 'use strict';
 const names = ['ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС'];
-const base = [
-  ['Силовая А','40–50 мин'], ['Интенсивный бег','40–55 мин'],
-  ['Лёгкая аэробная','40–50 мин'], ['Силовая Б','35–45 мин'],
-  ['Отдых + баня','Восстановление'], ['Длительный лесной бег','60–90 мин'],
-  ['Отдых','По желанию']
-];
 const get = id => document.getElementById(id);
 const key = 'my-sports-week-v1';
 const empty = () => ({weeks:{}, templates:{}});
@@ -43,10 +37,18 @@ const format = date => date.toLocaleDateString('ru', {day:'numeric',month:'short
 let date = monday();
 const week = () => data.weeks[dateKey(date)] || {mask:0,done:[]};
 function plan(mask) {
-  if (data.templates[mask]) return data.templates[mask];
-  if (!mask) return base;
-  return names.map((_,i) => i >= 4 && (mask & (1 << (i-4)))
-    ? ['Соревнования','Старт'] : ['План не внесён','']);
+  const rows = data.templates[mask] || builtInPlans[mask];
+  const previous = new Date(date);
+  previous.setDate(previous.getDate() - 7);
+  if (data.weeks[dateKey(previous)]?.mask !== 7 || data.templates[mask]) return rows;
+  return [['Восстановление','20–40 минут по желанию','Отдых или спокойная прогулка после трёх стартов.'], ...rows.slice(1)];
+}
+function detailsFor(row) {
+  const [title,,detail] = row;
+  const letter = title.match(/силовая ([АБ])/i)?.[1];
+  const easy = /облегчённая|лёгкая силовая/i.test(title);
+  const routine = easy ? strengthDetails['Облегчённая силовая'] : strengthDetails['Силовая '+letter];
+  return [detail,routine].filter(Boolean).join('\n\n');
 }
 const rowId = (i,row) => JSON.stringify([i,row[0],row[1]]);
 function editWeek(update) {
@@ -72,8 +74,6 @@ function render() {
     btn.setAttribute('aria-pressed',String(Boolean(mask & (1<<i))));
     btn.onclick = () => { editWeek(w => {w.mask ^= 1<<i;}); render(); };
   });
-  get('notice').hidden = !mask || Boolean(data.templates[mask]);
-  get('notice').textContent = 'Для этого сочетания есть только дни стартов. Готовое расписание можно внести в «Шаблоны и данные».';
   get('days').replaceChildren();
   let progress = 0;
   rows.forEach((row,i) => {
@@ -88,7 +88,7 @@ function render() {
     if (check.checked) progress++;
     check.setAttribute('aria-label',names[i]+' — '+title);
     check.onchange = () => {
-      editWeek(w => {w.done = check.checked ? [...w.done,id] : w.done.filter(x => x !== id);});
+      editWeek(w => {w.done = check.checked ? [...w.done,id] : w.done.filter(x => x !== id); if (check.checked && w.flags) delete w.flags[id];});
       render();
       get('days').querySelectorAll('input')[i].focus();
     };
@@ -97,15 +97,38 @@ function render() {
     append(summary,'span',names[i]).className = 'meta';
     const content = append(summary,'span',title);
     if (meta) append(content,'span',meta).className = 'meta';
-    append(details,'p',detail || 'Подробности можно добавить в шаблон.').className = 'detail';
+    const status = append(append(details,'label','Отметка за день '),'select');
+    const flags = ['Запланировано','Пропущено','Заменено отдыхом'];
+    for (const flag of flags) append(status,'option',flag);
+    status.value = (week().flags || {})[id] || flags[0];
+    status.onchange = () => {
+      const setting = status.value;
+      editWeek(w => {
+        w.flags = {...w.flags,[id]:setting};
+        if (setting !== flags[0]) w.done = w.done.filter(x => x !== id);
+      });
+      render();
+      get('days').querySelectorAll('.day > details')[i].open = true;
+    };
+    const recovery = append(details,'details');
+    append(recovery,'summary','Если плохо восстановился');
+    append(recovery,'p','При сильной усталости выбери отдых или прогулку по самочувствию. При болезни или травме выбери отдых. Пропущенное занятие не переносится.');
+    append(details,'p',detailsFor(row) || 'Подробности можно добавить в шаблон.').className = 'detail';
   });
   get('count').textContent = progress+'/7 выполнено';
   document.querySelector('progress').value = progress;
   get('history').replaceChildren();
   for (const k of Object.keys(data.weeks).sort().reverse()) {
     const w = data.weeks[k];
-    const total = plan(w.mask).filter((row,i) => w.done.includes(rowId(i,row))).length;
-    const btn = append(get('history'),'button',format(new Date(k+'T12:00:00'))+' · '+total+'/7');
+    const viewed = date;
+    date = new Date(k+'T12:00:00');
+    const completed = plan(w.mask).filter((row,i) => w.done.includes(rowId(i,row)));
+    date = viewed;
+    const total = completed.length;
+    const strength = completed.filter(row => /силовая/i.test(row[0])).length;
+    const running = completed.filter(row => /бег/i.test(row[0])).length;
+    const starts = [1,2,4].filter(bit => w.mask & bit).length;
+    const btn = append(get('history'),'button',format(new Date(k+'T12:00:00'))+' · '+Math.round(total/7*100)+'% · силовых '+strength+' · беговых '+running+' · стартовых дней '+starts);
     btn.onclick = () => { date = new Date(k+'T12:00:00'); render(); };
   }
   if (!get('history').children.length) append(get('history'),'p','Здесь появятся недели с отметками или выбранными стартами.');
@@ -126,7 +149,7 @@ get('edit').onclick = () => {
   const form = append(get('edit').parentElement,'form');
   form.id = 'editor';
   append(form,'p','Шаблон: '+(['Пт','Сб','Вс'].filter((_,i) => mask & (1<<i)).join(' + ') || 'Без стартов'));
-  const fields = plan(mask).map(([title,meta,detail],i) => {
+  const fields = (data.templates[mask] || builtInPlans[mask]).map(([title,meta,detail],i) => {
     const field = append(form,'fieldset');
     append(field,'legend',names[i]);
     return ['Занятие','Длительность или пометка','Подробности'].map((name,j) => {
