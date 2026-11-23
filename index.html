@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff"><title>Моя спортивная неделя</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="style.css"><script src="app.js" defer></script>
+<main>
+<header><span>МОЯ СПОРТИВНАЯ НЕДЕЛЯ</span><h1>План тренировок</h1></header>
+<nav aria-label="Неделя"><button id="prev" aria-label="Предыдущая неделя">‹</button><button id="current"></button><button id="next" aria-label="Следующая неделя">›</button></nav>
+<p>Выбери дни соревнований</p><div id="starts"></div>
+<h2>Твоя неделя <small id="count"></small></h2><progress max="7" value="0" aria-label="Выполнение недели"></progress>
+<p id="notice" hidden></p><div id="days"></div>
+<button id="copy">Скопировать расписание</button>
+<details><summary>История недель</summary><div id="history"></div></details>
+<details><summary>Шаблоны и данные</summary><p>Изменения шаблона применяются к выбранному сочетанию стартов.</p><button id="edit">Править шаблон</button><button id="export">Скачать резервную копию</button><label>Восстановить из копии <input type="file" id="import" accept=".json,application/json"></label></details>
+<p id="status" role="status"></p><p id="offline" role="status">Подготовка к работе без интернета…</p>
+</main>
+</html>
